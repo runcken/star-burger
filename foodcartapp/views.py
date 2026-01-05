@@ -64,11 +64,20 @@ def register_order(request):
     required_fields = ['firstname', 'lastname', 'phonenumber', 'address', 'products']
     for field in required_fields:
         if field not in data:
+            if field == 'products':
+                return Response({'error': 'products: Обязательное поле.'}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'error': f'Missing field: {field}'}, status=status.HTTP_400_BAD_REQUEST)
 
     products_data = data['products']
-    if not isinstance(products_data, list) or not products_data:
-        return Response({'error': 'Products must be a non-empty list'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if products_data is None:
+        return Response({'error': 'products: Это поле не может быть пустым'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not isinstance(products_data, list):
+        return Response({'error': 'products: Ожидался list со значениями, но был получен str'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(products_data) == 0:
+        return Response({'error': 'products: Этот список не может быть пустым'}, status=status.HTTP_400_BAD_REQUEST)
 
     products_ids = [item.get('product') for item in products_data]
     if not all(isinstance(pid, int) for pid in products_ids):
@@ -119,5 +128,5 @@ def register_order(request):
             for item in order.items.all()
         ]
     }
-    print(response_data)
+    # print(response_data)
     return Response(response_data, status=status.HTTP_201_CREATED)
