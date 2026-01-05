@@ -1,16 +1,17 @@
 import json
-from django.http import JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.templatetags.static import static
-
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
 from .models import Product, Order, OrderItem
 
 
+@api_view(['GET'])
 def banners_list_api(request):
-    # FIXME move data to db?
-    return JsonResponse([
+    banners = [
         {
             'title': 'Burger',
             'src': static('burger.jpg'),
@@ -26,12 +27,11 @@ def banners_list_api(request):
             'src': static('tasty.jpg'),
             'text': 'Food is incomplete without a tasty dessert',
         }
-    ], safe=False, json_dumps_params={
-        'ensure_ascii': False,
-        'indent': 4,
-    })
+    ]
+    return Response(banners)
 
 
+@api_view(['GET'])
 def product_list_api(request):
     products = Product.objects.select_related('category').available()
 
@@ -54,35 +54,29 @@ def product_list_api(request):
             }
         }
         dumped_products.append(dumped_product)
-    return JsonResponse(dumped_products, safe=False, json_dumps_params={
-        'ensure_ascii': False,
-        'indent': 4,
-    })
+    return Response(dumped_products)
 
 
+@api_view(['POST'])
 def register_order(request):
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-    try:
-        data = json.loads(request.body.decode('utf-8'))
-    except (ValueError, UnicodeDecodeError):
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    data = request.data
 
     required_fields = ['firstname', 'lastname', 'phonenumber', 'address', 'products']
-    for fields in required_fields:
-        if fields not in data:
-            return JsonResponse({'error': f'Missing field: {field}'}, status=400)
+    for field in required_fields:
+        if field not in data:
+            return Response({'error': f'Missing field: {field}'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not isinstance(data['products'], list) or not data['products']:
-        return JsonResponse({'error': 'Products must be a non-empty list'}, status=400)
+    products_data = data['products']
+    if not isinstance(products_data, list) or not products_data:
+        return Response({'error': 'Products must be a non-empty list'}, status=status.HTTP_400_BAD_REQUEST)
 
-    products_ids = [item.get('product') for item in data['products']]
+    products_ids = [item.get('product') for item in products_data]
     if not all(isinstance(pid, int) for pid in products_ids):
-        return JsonResponse({'error': 'Product IDs must be integers'}, status=400)
+        return Response({'error': 'Product IDs must be integers'}, status=status.HTTP_400_BAD_REQUEST)
 
     products = {p.id: p for p in Product.objects.filter(id__in=products_ids)}
     if len(products) != len(products_ids):
-        return JsonResponse({'error': 'One or more products not found'}, status=400)
+        return Response({'error': 'One or more products not found'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         with transaction.atomic():
@@ -94,11 +88,11 @@ def register_order(request):
             )
 
             order_items = []
-            for item in data['products']:
+            for item in products_data:
                 product_id = item['product']
                 quantity = item.get('quantity', 1)
                 if not isinstance(quantity, int) or quantity < 1:
-                    return JsonResponse({'error': f'Invalid quantity for product {product_id}'}, status=400)
+                    return Response({'error': f'Invalid quantity for product {product_id}'}, status=status.HTTP_400_BAD_REQUEST)
 
                 order_items.append(
                     OrderItem(
@@ -111,15 +105,19 @@ def register_order(request):
             OrderItem.objects.bulk_create(order_items)
 
     except Exception as e:
-        return JsonResponse({'error': 'Failed to create order'}, status=500)
+        return Response({'error': 'Failed to create order'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return JsonResponse({
+
+    response_data = {
         'id': order.id,
         'firstname': order.first_name,
         'lastname': order.last_name,
+        'phonenumber': str(order.phone_number),
         'address': order.address,
         'products': [
             {'product': item.product_id, 'quantity': item.quantity}
             for item in order.items.all()
         ]
-    }, status=201)
+    }
+    print(response_data)
+    return Response(response_data, status=status.HTTP_201_CREATED)
