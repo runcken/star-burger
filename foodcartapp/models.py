@@ -170,7 +170,7 @@ class OrderItem(models.Model):
     )
 
     class Meta:
-        verbose_name ='элемент заказа'
+        verbose_name = 'элемент заказа'
         verbose_name_plural = 'элементы заказа'
 
     def __str__(self):

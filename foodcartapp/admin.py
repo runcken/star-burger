@@ -121,6 +121,7 @@ class OrderAdmin(admin.ModelAdmin):
         'phone_number',        
         'first_name',
         'last_name',
+        'created_at',
 
     ]
     list_display_links = [
