@@ -164,6 +164,8 @@ class Order(models.Model):
         null=False,
         help_text='Комментарий клиента к заказу')
     created_at = models.DateTimeField('создан', auto_now_add=True)
+    called_at = models.DateTimeField('звонок', blank=True, null=True)
+    delivered_at = models.DateTimeField('доставлен', blank=True, null=True)
     status = models.CharField(
         'статус',
         max_length=50,

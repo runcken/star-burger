@@ -126,7 +126,26 @@ class OrderAdmin(admin.ModelAdmin):
         'comment'
 
     ]
-    # list_filter = ['status', 'restaurant']
+    fieldsets = (
+        ('ОСНОВНАЯ ИНФОРМАЦИЯ', {
+            'fields': (
+                'first_name',
+                'last_name',
+                'phone_number',
+                'address',
+                'comment'
+            )
+        }),
+        ('СТАТУС И РЕСТОРАН', {
+            'fields': ('status', 'restaurant')
+        }),
+        ('РАСПИСАНИЕ', {
+            'fields': ('created_at', 'called_at', 'delivered_at'),
+            'classes': ('collapse',)
+        }),    
+    )
+    readonly_fields = ['created_at']
+     # list_filter = ['status', 'restaurant']
     actions = [
         'mark_restaurant_confirmed',
         'mark_delivery_started',
@@ -143,12 +162,14 @@ class OrderAdmin(admin.ModelAdmin):
     def mark_completed(self, request, queryset):
         queryset.update(status=Order.Status.COMPLETED)
     mark_completed.short_description = 'Отметить: Заказ выполнен'
+
     list_display_links = [
         'address',
     ]
     inlines = [
         OrderItemInline
     ]
+
     def response_post_save_change(self, request, obj):
         if request.GET.get('_from_order_items') == '1':
             return HttpResponseRedirect(reverse('restaurateur:view_orders'))
