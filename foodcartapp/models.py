@@ -188,10 +188,16 @@ class OrderItem(models.Model):
         'количество',
         validators=[MinValueValidator(1)]
     )
+    price = models.DecimalField(
+        'цена на момент заказа',
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
 
     class Meta:
         verbose_name = 'элемент заказа'
         verbose_name_plural = 'элементы заказа'
 
     def __str__(self):
-        return f'{self.product} * {self.quantity}'
+        return f'{self.product} * {self.quantity} по {self.price} руб'
