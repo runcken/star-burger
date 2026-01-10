@@ -1,5 +1,7 @@
-from rest_framework import serializers
 from phonenumber_field.serializerfields import PhoneNumberField
+from rest_framework import serializers
+from django.db import transaction
+
 from .models import Product, Order, OrderItem
 
 
@@ -65,23 +67,24 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        validated_data['first_name'] = validated_data.pop('firstname')
-        validated_data['last_name'] = validated_data.pop('lastname')
-        validated_data['phone_number'] = validated_data.pop('phonenumber')
-        products_data = validated_data.pop('products')
-        order = Order.objects.create(**validated_data)
+        with transaction.atomic():
+            validated_data['first_name'] = validated_data.pop('firstname')
+            validated_data['last_name'] = validated_data.pop('lastname')
+            validated_data['phone_number'] = validated_data.pop('phonenumber')
+            products_data = validated_data.pop('products')
+            order = Order.objects.create(**validated_data)
 
-        order_items = []
-        for item in products_data:
-            product=Product.objects.get(id=item['product'])
-            order_items.append(
-                OrderItem(
-                    order=order,
-                    product=product,
-                    quantity=item['quantity'],
-                    price=product.price
+            order_items = []
+            for item in products_data:
+                product=Product.objects.get(id=item['product'])
+                order_items.append(
+                    OrderItem(
+                        order=order,
+                        product=product,
+                        quantity=item['quantity'],
+                        price=product.price
+                    )
                 )
-            )
 
-        OrderItem.objects.bulk_create(order_items)
-        return order
+            OrderItem.objects.bulk_create(order_items)
+            return order
