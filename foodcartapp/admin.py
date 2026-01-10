@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.http import HttpResponseRedirect
 from django.shortcuts import reverse
 from django.templatetags.static import static
 from django.utils.html import format_html
@@ -130,3 +131,7 @@ class OrderAdmin(admin.ModelAdmin):
     inlines = [
         OrderItemInline
     ]
+    def response_post_save_change(self, request, obj):
+        if request.GET.get('_from_order_items') == '1':
+            return HttpResponseRedirect(reverse('restaurateur:view_orders'))
+        return super().response_post_save_change(request, obj)
