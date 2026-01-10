@@ -136,6 +136,12 @@ class OrderQuerySet(models.QuerySet):
 
 
 class Order(models.Model):
+    class Status(models.TextChoices):
+        UNPROCESSED = 'unprocessed', 'Необработанный'
+        RESTAURANT_CONFIRMED = 'restaurant_confirmed', 'Ресторан подтвердил'
+        DELIVERY_STARTED = 'delivery_started', 'Передан курьеру'
+        COMPLETED = 'completed', 'Заказ выполнен'
+        
     first_name = models.CharField(
         'имя',
         max_length=100,
@@ -152,6 +158,14 @@ class Order(models.Model):
         max_length=200,
         blank=True,
     )
+    created_at = models.DateTimeField('создан', auto_now_add=True)
+    status = models.CharField(
+        'статус',
+        max_length=50,
+        choices=Status.choices,
+        default=Status.UNPROCESSED,
+        db_index=True
+    )
     restaurant = models.ForeignKey(
         Restaurant,
         on_delete=models.SET_NULL,
@@ -159,8 +173,7 @@ class Order(models.Model):
         blank=True,
         verbose_name='ресторан',
         related_name='orders'
-        )
-    created_at = models.DateTimeField('создан', auto_now_add=True)
+    )
     objects = OrderQuerySet.as_manager()
 
     class Meta:

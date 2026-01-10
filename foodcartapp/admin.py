@@ -125,6 +125,23 @@ class OrderAdmin(admin.ModelAdmin):
         'created_at',
 
     ]
+    # list_filter = ['status', 'restaurant']
+    actions = [
+        'mark_restaurant_confirmed',
+        'mark_delivery_started',
+        'mark_completed'
+    ]
+    def mark_restaurant_confirmed(self, request, queryset):
+        queryset.update(status=Order.Status.RESTAURANT_CONFIRMED)
+    mark_restaurant_confirmed.short_description = 'Отметить: Ресторан подтвердил'
+
+    def mark_delivery_started(self, request, queryset):
+        queryset.update(status=Order.Status.DELIVERY_STARTED)
+    mark_delivery_started.short_description = 'Отметить: Передан курьеру'
+
+    def mark_completed(self, request, queryset):
+        queryset.update(status=Order.Status.COMPLETED)
+    mark_completed.short_description = 'Отметить: Заказ выполнен'
     list_display_links = [
         'address',
     ]

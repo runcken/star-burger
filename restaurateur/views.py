@@ -94,7 +94,7 @@ def view_restaurants(request):
 def view_orders(request):
     order_items = (
         Order.objects
-        .filter(restaurant__isnull=True)
+        .filter(status=Order.Status.UNPROCESSED)
         .with_total_price()
         .order_by('-created_at')
     )
