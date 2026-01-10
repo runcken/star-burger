@@ -141,7 +141,7 @@ class Order(models.Model):
         RESTAURANT_CONFIRMED = 'restaurant_confirmed', 'Ресторан подтвердил'
         DELIVERY_STARTED = 'delivery_started', 'Передан курьеру'
         COMPLETED = 'completed', 'Заказ выполнен'
-        
+
     first_name = models.CharField(
         'имя',
         max_length=100,
@@ -158,6 +158,11 @@ class Order(models.Model):
         max_length=200,
         blank=True,
     )
+    comment = models.TextField(
+        'комментарий',
+        blank = True,
+        null=False,
+        help_text='Комментарий клиента к заказу')
     created_at = models.DateTimeField('создан', auto_now_add=True)
     status = models.CharField(
         'статус',

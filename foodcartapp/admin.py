@@ -123,6 +123,7 @@ class OrderAdmin(admin.ModelAdmin):
         'first_name',
         'last_name',
         'created_at',
+        'comment'
 
     ]
     # list_filter = ['status', 'restaurant']
