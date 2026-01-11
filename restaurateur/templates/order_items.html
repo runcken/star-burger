@@ -20,10 +20,11 @@
       <th>Клиент</th>
       <th>Телефон</th>
       <th>Адрес доставки</th>
+      <th>Доступные рестораны</th>
       <th>Ссылка на админку</th>
     </tr>
 
-    {% for item in order_items %}
+    {% for item in unassigned_orders %}
       <tr>
         <td>{{ item.id }}</td>
         <td>{{ item.get_status_display }}</td>
@@ -38,6 +39,63 @@
         <td>{{ item.first_name }}</td>
         <td>{{ item.phone_number }}</td>
         <td>{{ item.address }}</td>
+        <td>
+          {% if item.available_restaurants %}
+            <ul style="margin-bottom: 0; padding-left: 20px;">
+            {% for restaurant in item.available_restaurants %}
+              <li>{{ restaurant }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <em>Нет подходящих ресторанов</em>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'admin:foodcartapp_order_change' item.id %}?_from_order_items=1">
+            Редактировать
+          <a/>
+        <td/>
+      </tr>
+    {% endfor %}
+   </table>
+  </div>
+    <center>
+    <h2>Заказы в работе</h2>
+  </center>
+
+  <!-- <hr/> -->
+  <!-- <br/> -->
+  <br/>
+  <div class="container">
+   <table class="table table-responsive">
+    <tr>
+      <th>ID заказа</th>
+      <th>Статус</th>
+      <th>Оплата</th>
+      <th>Стоимость заказа</th>
+      <th>Клиент</th>
+      <th>Телефон</th>
+      <th>Адрес доставки</th>
+      <th>Рестораны</th>
+      <th>Ссылка на админку</th>
+    </tr>
+
+    {% for item in assigned_orders %}
+      <tr>
+        <td>{{ item.id }}</td>
+        <td>{{ item.get_status_display }}</td>
+        <td>{{ item.get_payment_display }}</td>
+        <td>
+          {% if item.total_price %}
+            {{ item.total_price }} руб
+          {% else %}
+            0 руб
+          {% endif %}
+        </td>
+        <td>{{ item.first_name }}</td>
+        <td>{{ item.phone_number }}</td>
+        <td>{{ item.address }}</td>
+        <td>Готовит: {{ item.restaurant.name }}</td>
         <td>
           <a href="{% url 'admin:foodcartapp_order_change' item.id %}?_from_order_items=1">
             Редактировать

@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import Sum, F, DecimalField
+from django.db.models import Sum, F, DecimalField, Count, Q
 from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -138,7 +138,7 @@ class OrderQuerySet(models.QuerySet):
 class Order(models.Model):
     class Status(models.TextChoices):
         UNPROCESSED = 'unprocessed', 'Необработанный'
-        RESTAURANT_CONFIRMED = 'restaurant_confirmed', 'Ресторан подтвердил'
+        RESTAURANT_CONFIRMED = 'restaurant_confirmed', 'Готовится'
         DELIVERY_STARTED = 'delivery_started', 'Передан курьеру'
         COMPLETED = 'completed', 'Заказ выполнен'
 
@@ -178,7 +178,7 @@ class Order(models.Model):
         db_index=True
     )
     restaurant = models.ForeignKey(
-        Restaurant,
+        'Restaurant',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -200,6 +200,11 @@ class Order(models.Model):
 
     def __str__(self):
         return f'Заказ {self.id} - {self.first_name} {self.last_name}'
+
+    def save(self, *args, **kwargs):
+        if self.restaurant and self.status == self.Status.UNPROCESSED:
+            self.status = self.Status.RESTAURANT_CONFIRMED
+        super().save(*args, **kwargs)
 
 
 class OrderItem(models.Model):
