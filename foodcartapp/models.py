@@ -142,6 +142,10 @@ class Order(models.Model):
         DELIVERY_STARTED = 'delivery_started', 'Передан курьеру'
         COMPLETED = 'completed', 'Заказ выполнен'
 
+    class Payment(models.TextChoices):
+        CASH = 'cash', 'Наличными'
+        CARD = 'card', 'Картой'
+
     first_name = models.CharField(
         'имя',
         max_length=100,
@@ -180,6 +184,13 @@ class Order(models.Model):
         blank=True,
         verbose_name='ресторан',
         related_name='orders'
+    )
+    payment = models.CharField(
+        'оплата',
+        max_length=50,
+        choices=Payment.choices,
+        blank=True,
+        db_index=True
     )
     objects = OrderQuerySet.as_manager()
 

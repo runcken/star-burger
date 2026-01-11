@@ -122,9 +122,7 @@ class OrderAdmin(admin.ModelAdmin):
         'phone_number',        
         'first_name',
         'last_name',
-        'created_at',
-        'comment'
-
+        'created_at'
     ]
     fieldsets = (
         ('ОСНОВНАЯ ИНФОРМАЦИЯ', {
@@ -133,6 +131,7 @@ class OrderAdmin(admin.ModelAdmin):
                 'last_name',
                 'phone_number',
                 'address',
+                'payment',
                 'comment'
             )
         }),
