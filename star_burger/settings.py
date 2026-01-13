@@ -109,6 +109,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+YANDEX_API_KEY = env.str('YANDEX_API_KEY')
+
 LANGUAGE_CODE = 'ru-RU'
 
 TIME_ZONE = "Europe/Moscow"
