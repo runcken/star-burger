@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import Sum, F, DecimalField, Count, Q
+from django.db.models import Sum, F, DecimalField
 from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -164,7 +164,7 @@ class Order(models.Model):
     )
     comment = models.TextField(
         'комментарий',
-        blank = True,
+        blank=True,
         null=False,
         help_text='Комментарий клиента к заказу')
     created_at = models.DateTimeField('создан', auto_now_add=True)

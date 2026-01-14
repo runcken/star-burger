@@ -71,13 +71,13 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             validated_data['first_name'] = validated_data.pop('firstname')
             validated_data['last_name'] = validated_data.pop('lastname')
             validated_data['phone_number'] = validated_data.pop('phonenumber')
-            validated_data['status'] = Order.Status.UNPROCESSED        
+            validated_data['status'] = Order.Status.UNPROCESSED
             products_data = validated_data.pop('products')
             order = Order.objects.create(**validated_data)
 
             order_items = []
             for item in products_data:
-                product=Product.objects.get(id=item['product'])
+                product = Product.objects.get(id=item['product'])
                 order_items.append(
                     OrderItem(
                         order=order,

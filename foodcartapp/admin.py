@@ -10,6 +10,7 @@ from .models import Restaurant
 from .models import RestaurantMenuItem
 from .models import Order
 from .models import OrderItem
+from geocoding.models import Location
 
 
 class RestaurantMenuItemInline(admin.TabularInline):
@@ -119,7 +120,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = [
         'id',
         'address',
-        'phone_number',        
+        'phone_number',
         'first_name',
         'last_name',
         'created_at'
@@ -141,15 +142,15 @@ class OrderAdmin(admin.ModelAdmin):
         ('РАСПИСАНИЕ', {
             'fields': ('created_at', 'called_at', 'delivered_at'),
             'classes': ('collapse',)
-        }),    
+        }),
     )
     readonly_fields = ['created_at']
-     # list_filter = ['status', 'restaurant']
     actions = [
         'mark_restaurant_confirmed',
         'mark_delivery_started',
         'mark_completed'
     ]
+
     def mark_restaurant_confirmed(self, request, queryset):
         queryset.update(status=Order.Status.RESTAURANT_CONFIRMED)
     mark_restaurant_confirmed.short_description = 'Отметить: Ресторан подтвердил'
@@ -173,3 +174,15 @@ class OrderAdmin(admin.ModelAdmin):
         if request.GET.get('_from_order_items') == '1':
             return HttpResponseRedirect(reverse('restaurateur:view_orders'))
         return super().response_post_save_change(request, obj)
+
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = [
+        'address',
+        'lat',
+        'lon',
+        'created_at',
+        'updated_at',
+    ]
+
