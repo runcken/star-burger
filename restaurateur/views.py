@@ -1,16 +1,12 @@
 from django import forms
-from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.views import View
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import user_passes_test
-from geopy.distance import geodesic
-
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
 
 from foodcartapp.models import Product, Restaurant, Order
-from geocoding.utils import fetch_coordinates
 
 
 class Login(forms.Form):
@@ -99,56 +95,11 @@ def view_orders(request):
         .prefetch_related('items')
         .with_total_price()
         .order_by('-created_at')
+        .with_restaurants_and_distances()
     )
 
-    for order in orders:
-        product_ids = {item.product_id for item in order.items.all()}
-        if not product_ids:
-            order.available_restaurants_with_distance = []
-            continue
-
-        suitable_restaurants = (
-            Restaurant.objects
-            .filter(
-                menu_items__product_id__in=product_ids,
-                menu_items__availability=True
-            )
-            .annotate(
-                matched_products=Count('menu_items__product_id', distinct=True)
-            )
-            .filter(matched_products=len(product_ids))
-            .values('id', 'name', 'address')
-        )
-
-        customer_coords = fetch_coordinates(order.address)
-
-        restaurants_with_distance = []
-        for rest in suitable_restaurants:
-            restaurant_coords = fetch_coordinates(rest['address'])
-
-            distance_km = None
-            if customer_coords and restaurant_coords:
-                try:
-                    distance_km = geodesic(
-                        customer_coords,
-                        restaurant_coords
-                    ).km
-                except Exception:
-                    distance_km = None
-
-            restaurants_with_distance.append({
-                'name': rest['name'],
-                'distance_km': round(distance_km, 2) if distance_km else None
-            })
-
-        restaurants_with_distance.sort(
-            key=lambda x: (x['distance_km'] is None, x['distance_km'])
-        )
-
-        order.available_restaurants_with_distance = restaurants_with_distance
-
-    unassigned_orders = [o for o in orders if not o.restaurant]
-    assigned_orders = [o for o in orders if o.restaurant]
+    unassigned_orders = [order for order in orders if not order.restaurant]
+    assigned_orders = [order for order in orders if order.restaurant]
 
     return render(request, 'order_items.html', {
         'unassigned_orders': unassigned_orders,

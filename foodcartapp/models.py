@@ -1,7 +1,11 @@
+from collections import defaultdict
 from django.db import models
 from django.db.models import Sum, F, DecimalField
 from django.core.validators import MinValueValidator
+from geopy.distance import geodesic
 from phonenumber_field.modelfields import PhoneNumberField
+
+from geocoding.utils import get_or_create_locations
 
 
 class Restaurant(models.Model):
@@ -134,6 +138,107 @@ class OrderQuerySet(models.QuerySet):
             )
         )
 
+    def with_restaurants_and_distances(self):
+        from .models import RestaurantMenuItem
+
+        menu_items = (
+            RestaurantMenuItem.objects
+            .filter(availability=True)
+            .select_related('restaurant')
+        )
+
+        restaurant_products = defaultdict(set)
+        restaurant_info = {}
+
+        for item in menu_items:
+            restaurant_products[item.restaurant_id].add(item.product_id)
+            restaurant_info[item.restaurant_id] = {
+                'name': item.restaurant.name,
+                'address': item.restaurant.address
+            }
+
+        all_addresses = set()
+        order_product_map = {}
+
+        for order in self:
+            product_ids = {item.product_id for item in order.items.all()}
+            order_product_map[order.id] = product_ids
+            if order.address.strip():
+                all_addresses.add(order.address.strip())
+
+        for info in restaurant_info.values():
+            if info['address'].strip():
+                all_addresses.add(info['address'].strip())
+
+        coordinates = get_or_create_locations(list(all_addresses))
+
+        restaurants_by_order_id = {}
+
+        for order in self:
+            product_ids = order_product_map[order.id]
+            if not product_ids:
+                restaurants_by_order_id[order.id] = []
+                continue
+
+            customer_address = order.address.strip() if order.address else ''
+            customer_coords = coordinates.get(customer_address)
+
+            if customer_coords == 'NOT_FOUND':
+                restaurants_by_order_id[order.id] = 'ADDRESS_NOT_FOUND'
+                continue
+
+            restaurants_list = []
+
+            for restaurant_id, products in restaurant_products.items():
+                if not product_ids.issubset(products):
+                    continue
+
+                rest_info = restaurant_info[restaurant_id]
+                restaurant_addr = (
+                    rest_info['address'].strip()
+                    if rest_info['address']
+                    else ""
+                )
+                restaurant_coords = coordinates.get(restaurant_addr)
+
+                if restaurant_coords == 'NOT_FOUND':
+                    distance_km = None
+                elif customer_coords and restaurant_coords:
+                    try:
+                        distance_km = geodesic(
+                            customer_coords,
+                            restaurant_coords
+                        ).km
+                    except Exception:
+                        distance_km = None
+                else:
+                    distance_km = None
+
+                restaurants_list.append({
+                    'name': rest_info['name'],
+                    'distance_km': (
+                        round(distance_km, 2)
+                        if distance_km
+                        else None
+                    )
+                })
+
+            restaurants_list.sort(
+                key=lambda x: (
+                    x['distance_km'] is None,
+                    x['distance_km']
+                )
+            )
+            restaurants_by_order_id[order.id] = restaurants_list
+
+        for order in self:
+            order.restaurants_with_distances = restaurants_by_order_id.get(
+                order.id,
+                []
+            )
+
+        return self
+
 
 class Order(models.Model):
     class Status(models.TextChoices):
@@ -148,28 +253,39 @@ class Order(models.Model):
 
     first_name = models.CharField(
         'имя',
-        max_length=100,
-        blank=True,
+        max_length=100
     )
     last_name = models.CharField(
         'фамилия',
-        max_length=100,
-        blank=True,
+        max_length=100
     )
-    phone_number = PhoneNumberField('телефон', blank=True)
+    phone_number = PhoneNumberField('телефон', db_index=True)
     address = models.CharField(
         'адрес',
         max_length=200,
-        blank=True,
     )
     comment = models.TextField(
         'комментарий',
         blank=True,
         null=False,
         help_text='Комментарий клиента к заказу')
-    created_at = models.DateTimeField('создан', auto_now_add=True)
-    called_at = models.DateTimeField('звонок', blank=True, null=True)
-    delivered_at = models.DateTimeField('доставлен', blank=True, null=True)
+    created_at = models.DateTimeField(
+        'создан',
+        auto_now_add=True,
+        db_index=True
+    )
+    called_at = models.DateTimeField(
+        'звонок',
+        blank=True,
+        null=True,
+        db_index=True
+    )
+    delivered_at = models.DateTimeField(
+        'доставлен',
+        blank=True,
+        null=True,
+        db_index=True
+    )
     status = models.CharField(
         'статус',
         max_length=50,
@@ -200,11 +316,6 @@ class Order(models.Model):
 
     def __str__(self):
         return f'Заказ {self.id} - {self.first_name} {self.last_name}'
-
-    def save(self, *args, **kwargs):
-        if self.restaurant and self.status == self.Status.UNPROCESSED:
-            self.status = self.Status.RESTAURANT_CONFIRMED
-        super().save(*args, **kwargs)
 
 
 class OrderItem(models.Model):
