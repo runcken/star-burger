@@ -139,8 +139,25 @@ class OrderQuerySet(models.QuerySet):
         )
 
     def with_restaurants_and_distances(self):
-        from .models import RestaurantMenuItem
+        restaurant_products, restaurant_info = self._get_restaurant_data()
 
+        all_addresses = self._collect_addresses(restaurant_info)
+
+        coordinates = get_or_create_locations(list(all_addresses))
+
+        restaurants_by_order_id = self._match_orders_to_restaurants(
+            restaurant_products, restaurant_info, coordinates
+        )
+
+        for order in self:
+            order.restaurants_with_distances = restaurants_by_order_id.get(
+                order.id,
+                []
+            )
+
+        return self
+
+    def _get_restaurant_data(self):
         menu_items = (
             RestaurantMenuItem.objects
             .filter(availability=True)
@@ -157,20 +174,29 @@ class OrderQuerySet(models.QuerySet):
                 'address': item.restaurant.address
             }
 
+        return restaurant_products, restaurant_info
+
+    def _collect_addresses(self, restaurant_info):
         all_addresses = set()
+
+        for order in self:
+            if order.address and order.address.strip():
+                all_addresses.add(order.address.strip())
+
+        for info in restaurant_info.values():
+            if info['address'] and info['address'].strip():
+                all_addresses.add(info['address'].strip())
+
+        return all_addresses
+
+    def _match_orders_to_restaurants(
+                                    self, restaurant_products,
+                                    restaurant_info, coordinates):
         order_product_map = {}
 
         for order in self:
             product_ids = {item.product_id for item in order.items.all()}
             order_product_map[order.id] = product_ids
-            if order.address.strip():
-                all_addresses.add(order.address.strip())
-
-        for info in restaurant_info.values():
-            if info['address'].strip():
-                all_addresses.add(info['address'].strip())
-
-        coordinates = get_or_create_locations(list(all_addresses))
 
         restaurants_by_order_id = {}
 
@@ -187,41 +213,10 @@ class OrderQuerySet(models.QuerySet):
                 restaurants_by_order_id[order.id] = 'ADDRESS_NOT_FOUND'
                 continue
 
-            restaurants_list = []
-
-            for restaurant_id, products in restaurant_products.items():
-                if not product_ids.issubset(products):
-                    continue
-
-                rest_info = restaurant_info[restaurant_id]
-                restaurant_addr = (
-                    rest_info['address'].strip()
-                    if rest_info['address']
-                    else ""
-                )
-                restaurant_coords = coordinates.get(restaurant_addr)
-
-                if restaurant_coords == 'NOT_FOUND':
-                    distance_km = None
-                elif customer_coords and restaurant_coords:
-                    try:
-                        distance_km = geodesic(
-                            customer_coords,
-                            restaurant_coords
-                        ).km
-                    except Exception:
-                        distance_km = None
-                else:
-                    distance_km = None
-
-                restaurants_list.append({
-                    'name': rest_info['name'],
-                    'distance_km': (
-                        round(distance_km, 2)
-                        if distance_km
-                        else None
-                    )
-                })
+            restaurants_list = self._get_restaurants_for_order(
+                order, product_ids, restaurant_products,
+                restaurant_info, coordinates, customer_coords
+            )
 
             restaurants_list.sort(
                 key=lambda x: (
@@ -229,15 +224,57 @@ class OrderQuerySet(models.QuerySet):
                     x['distance_km']
                 )
             )
+
             restaurants_by_order_id[order.id] = restaurants_list
 
-        for order in self:
-            order.restaurants_with_distances = restaurants_by_order_id.get(
-                order.id,
-                []
+        return restaurants_by_order_id
+
+    def _get_restaurants_for_order(
+                                self, order, product_ids,
+                                restaurant_products, restaurant_info,
+                                coordinates, customer_coords):
+        restaurants_list = []
+
+        for restaurant_id, products in restaurant_products.items():
+            if not product_ids.issubset(products):
+                continue
+
+            rest_info = restaurant_info[restaurant_id]
+            restaurant_addr = (
+                rest_info['address'].strip()
+                if rest_info['address']
+                else ""
+            )
+            restaurant_coords = coordinates.get(restaurant_addr)
+
+            distance_km = self._calculate_distance(
+                customer_coords,
+                restaurant_coords
             )
 
-        return self
+            restaurants_list.append({
+                'name': rest_info['name'],
+                'distance_km': (
+                    round(distance_km, 2)
+                    if distance_km
+                    else None
+                )
+            })
+
+        return restaurants_list
+
+    def _calculate_distance(self, customer_coords, restaurant_coords):
+        if restaurant_coords == 'NOT_FOUND':
+            return None
+        elif customer_coords and restaurant_coords:
+            try:
+                return geodesic(
+                    customer_coords,
+                    restaurant_coords
+                ).km
+            except Exception:
+                return None
+        return None
 
 
 class Order(models.Model):
