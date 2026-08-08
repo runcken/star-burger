@@ -46,7 +46,7 @@ def product_list_api(request):
     dumped_products = []
     for product in products:
         dumped_product = {
-            'id': product.ids,
+            'id': product.id,
             'name': product.name,
             'price': product.price,
             'special_status': product.special_status,
