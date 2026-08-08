@@ -7,6 +7,16 @@ from .models import Product
 from .serializers import OrderCreateSerializer
 
 
+from django.http import HttpResponse
+
+
+def test_error(request):
+    """Trigger a test error for Rollbar."""
+    a = None
+    a.hello()  # This will raise AttributeError
+    return HttpResponse("This will not be reached")
+
+
 @api_view(['GET'])
 def banners_list_api(request):
     banners = [
@@ -36,7 +46,7 @@ def product_list_api(request):
     dumped_products = []
     for product in products:
         dumped_product = {
-            'id': product.id,
+            'id': product.ids,
             'name': product.name,
             'price': product.price,
             'special_status': product.special_status,

@@ -4,8 +4,10 @@ from django.urls import path, include
 from django.shortcuts import render
 
 from . import settings
+from foodcartapp import views
 
 urlpatterns = [
+    path('test-error/', views.test_error, name='test_error'),
     path('admin/', admin.site.urls),
     path('', render, kwargs={'template_name': 'index.html'}, name='start_page'),
     path('api/', include('foodcartapp.urls')),
