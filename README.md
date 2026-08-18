@@ -59,9 +59,30 @@ pip install -r requirements.txt
 SECRET_KEY=django-insecure-0if40nf4nf93n4
 ```
 
-Создайте файл базы данных SQLite и отмигрируйте её следующей командой:
+Создайте файл базы данных PostgreSQL:
 
 ```sh
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo -u postgres psql
+```
+
+В интерактивной оболочке PostgreSQL выполните, заменив `your_secure_password` на ваш пароль :
+```sh
+CREATE DATABASE star_burger_db;
+CREATE USER star_burger_user WITH PASSWORD 'your_secure_password';
+ALTER ROLE star_burger_user SET client_encoding TO 'utf8';
+ALTER ROLE star_burger_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE star_burger_user SET timezone TO 'UTC';
+GRANT ALL ON SCHEMA public TO star_burger_user;
+GRANT ALL PRIVILEGES ON DATABASE star_burger_db TO star_burger_user;
+\q
+```
+
+Отмигрируйте базу:
+
+```sh
+python manage.py makemigrations
 python manage.py migrate
 ```
 
@@ -150,6 +171,11 @@ Parcel будет следить за файлами в каталоге `bundle
 - `ALLOWED_HOSTS` — [см. документацию Django](https://docs.djangoproject.com/en/5.2/ref/settings/#allowed-hosts)
 - `ROLLBAR_ACCESS_TOKEN` — токен сервиса ROLLBAR(`post_server_item`).
 - `ROLLBAR_ENVIRONMENT` — название окружения или инсталляции сайта.
+- `DB_NAME` — название БД Postgres.
+- `DB_USER` — имя пользователя БД.
+- `DB_PASSWORD` — пароль БД.
+- `DB_HOST` — хост БД.
+- `DB_PORT` — порт БД.
 
 Для мониторинга ошибок сайта необходимо создать проект на rollbar.com и получить для него токен(`post_server_item`). Проверить работоспособность мониторинга можно используя ссылку в браузере http://127.0.0.1:8000/test-error/.
 
