@@ -179,6 +179,160 @@ Parcel будет следить за файлами в каталоге `bundle
 
 Для мониторинга ошибок сайта необходимо создать проект на rollbar.com и получить для него токен(`post_server_item`). Проверить работоспособность мониторинга можно используя ссылку в браузере http://127.0.0.1:8000/test-error/.
 
+## Деплой
+
+Скопируйте код в папку(для примера) opt/star-burger
+Создайте сервис для запуска node.js
+
+```
+sudo nano /etc/systemd/system/star-burger-parcel.service
+```
+
+с содержимым
+
+```
+Description=Star Burger Parcel Watch
+After=network.target
+
+[Service]
+User=starburger
+Group=starburger
+WorkingDirectory=/opt/star-burger
+ExecStart=/opt/star-burger/node_modules/.bin/parcel build bundles-src/index.js --dist-dir bundles --public-url="./"
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+и сервис gunicorn:
+
+```
+sudo nano /etc/systemd/system/star-burger-parcel.service
+```
+
+с содержимым:
+
+```
+[Unit]
+Description=Star Burger Gunicorn
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=starburger
+Group=starburger
+WorkingDirectory=/opt/star-burger
+Environment="PATH=/opt/star-burger/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="DJANGO_SETTINGS_MODULE=star_burger.settings"
+ExecStart=/opt/star-burger/venv/bin/gunicorn --bind 127.0.0.1:8000 star_burger.wsgi:application
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+и запустите:
+
+```
+sudo systemctl daemon-reload
+sudo systemctl start star-burger-parcel
+sudo systemctl star-burger-gunicorn
+```
+
+Настройте Nginx:
+
+```
+sudo nano /etc/nginx/sites-available/star-burger
+```
+
+с содержимым:
+
+```
+server {
+    listen 80;
+    server_name ваш_ip_или_домен;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        alias /opt/star-burger/static/;
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /bundles/ {
+        alias /opt/star-burger/bundles/;
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+## Быстрое обновление деплоя
+
+Создайте скрипт script.sh
+```
+#!/bin/bash
+set -e
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 16.16.0
+
+PROJECT_DIR="/opt/star-burger"
+cd "$PROJECT_DIR"
+
+source venv/bin/activate
+
+echo ">>> Получение обновлений из репозитория..."
+git pull
+
+echo ">>> Установка зависимостей Python..."
+pip install -r requirements.txt
+
+source .env
+
+echo ">>> Применение миграций базы данных..."
+python manage.py migrate
+
+echo ">>> Сбор статики Django..."
+python manage.py collectstatic --noinput
+
+echo ">>> Установка зависимостей Node.js..."
+npm install --include=dev
+
+echo ">>> Сборка фронтенда (Parcel)..."
+./node_modules/.bin/parcel build bundles-src/index.js --dist-dir bundles --public-url="./"
+
+echo ">>> Перезапуск Gunicorn..."
+sudo systemctl restart star-burger-gunicorn
+
+echo ">>> Готово!"
+```
+
+Дайте ему права на выполнение:
+
+```
+sudo chmod +x script.sh
+```
+
+Запускайте:
+
+```
+./script.sh
+```
+
 ## Цели проекта
 
 Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org). За основу был взят код проекта [FoodCart](https://github.com/Saibharath79/FoodCart).
