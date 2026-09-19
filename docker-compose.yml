@@ -1,0 +1,52 @@
+services:
+  # Сервис базы данных
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Сервис бэкенда
+  backend:
+    build: .
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 3 star_burger.wsgi:application"
+    volumes:
+      - ./media:/app/media
+      - ./bundles:/app/bundles
+    depends_on:
+      db:
+        condition: service_healthy
+      frontend:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  # Одноразовый сервис для сборки фронтенда
+  frontend:
+    image: node:16-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      sh -c "npm install --include=dev &&
+             ./node_modules/.bin/parcel build bundles-src/index.js --dist-dir bundles --public-url='./'"
+    # Этот сервис не должен перезапускаться
+    restart: "no"
+
+volumes:
+  postgres_data:
