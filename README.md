@@ -166,7 +166,7 @@ docker compose up --build
 Сайт будет доступен на 127.0.0.1:8000.
 
 
-## Как запустить prod-версию сайта
+## Как запустить prod-версию сайта без Docker
 
 Собрать фронтенд:
 
@@ -343,6 +343,54 @@ sudo chmod +x script.sh
 ```
 ./script.sh
 ```
+
+
+## Как запустить prod-версию сайта в Docker контейнерах
+
+В docker-compose.yml в блоке backend:ports вместо "8000:8000" используйте "127.0.0.1:8000:8000"
+Запустите контейнеры:
+
+```
+docker compose up --build
+```
+
+Обновленный скрипт деплоя для работы с контейнерами:
+
+```
+#!/bin/bash
+set -e
+
+PROJECT_DIR="/opt/star-burger"
+cd "$PROJECT_DIR"
+
+echo ">>> Получение обновлений из репозитория..."
+git pull
+export CURRENT_REVISION=$(git rev-parse HEAD)
+
+echo ">>> Сборка фронтенда (Parcel)..."
+docker compose run --rm frontend
+
+echo ">>> Пересборка и перезапуск бэкенда..."
+docker compose up -d --build backend
+
+echo ">>> Сайт обновлён: $CURRENT_REVISION"
+
+# Отправка деплоя в Rollbar
+source .env
+curl -s -L --request POST \
+  --url https://api.rollbar.com/api/1/deploy \
+  --header "X-Rollbar-Access-Token: $ROLLBAR_DEPLOY_TOKEN" \
+  --header "accept: application/json" \
+  --header "content-type: application/json" \
+  --data '{
+    "environment": "production",
+    "revision": "'"$CURRENT_REVISION"'",
+    "rollbar_username": "runcken"
+  }'
+
+echo ">>> Статус деплоя отправлен в Rollbar"
+```
+
 
 Ссылка на сайт runcken.ru
 
