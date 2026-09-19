@@ -348,10 +348,11 @@ sudo chmod +x script.sh
 ## Как запустить prod-версию сайта в Docker контейнерах
 
 В docker-compose.yml в блоке backend:ports вместо "8000:8000" используйте "127.0.0.1:8000:8000"
-Запустите контейнеры:
+Создайте и запустите контейнеры:
 
 ```
-docker compose up --build
+docker compose build --no-cache backend
+docker compose up -d
 ```
 
 Обновленный скрипт деплоя для работы с контейнерами:
