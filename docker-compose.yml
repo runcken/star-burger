@@ -1,5 +1,4 @@
 services:
-  # Сервис базы данных
   db:
     image: postgres:15-alpine
     volumes:
@@ -15,7 +14,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Сервис бэкенда
   backend:
     build: .
     command: >
@@ -36,7 +34,6 @@ services:
       - .env
     restart: unless-stopped
 
-  # Одноразовый сервис для сборки фронтенда
   frontend:
     image: node:16-alpine
     working_dir: /app
@@ -45,7 +42,6 @@ services:
     command: >
       sh -c "npm install --include=dev &&
              ./node_modules/.bin/parcel build bundles-src/index.js --dist-dir bundles --public-url='./'"
-    # Этот сервис не должен перезапускаться
     restart: "no"
 
 volumes:
